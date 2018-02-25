@@ -220,7 +220,7 @@ public class OpenSubtitle {
             movie=new File(filePath);
             fileHash=OpenSubtitleHasher.computeHash(movie);
             System.out.println(fileHash);
-        } catch (IOException e) {
+        } catch (Exception e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }

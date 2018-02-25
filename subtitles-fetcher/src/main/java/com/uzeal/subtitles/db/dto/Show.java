@@ -5,19 +5,10 @@ import com.uzeal.db.dao.Key;
 
 public class Show implements DTO{
 	@Key(order=1)
-	private long id;
 	private String name;
 	private boolean movie;
 	
 	public Show() { }
-
-	public long getId() {
-		return id;
-	}
-
-	public void setId(long id) {
-		this.id = id;
-	}
 
 	public String getName() {
 		return name;
@@ -38,8 +29,7 @@ public class Show implements DTO{
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
-		builder.append("Show [id=").append(id).append(", name=").append(name).append(", movie=").append(movie)
-				.append("]");
+		builder.append("Show [name=").append(name).append(", movie=").append(movie).append("]");
 		return builder.toString();
 	}
 	

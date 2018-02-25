@@ -1,6 +1,9 @@
 package com.uzeal.subtitles.opensub; 
 
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.LongBuffer;
@@ -19,43 +22,44 @@ public class OpenSubtitleHasher {
     private static final int HASH_CHUNK_SIZE = 64 * 1024;
 
 
-    public static String computeHash(File file) throws IOException {
+    public static String computeHash(File file) {
         long size = file.length();
         long chunkSizeForFile = Math.min(HASH_CHUNK_SIZE, size);
 
-        FileChannel fileChannel = new FileInputStream(file).getChannel();
-
-        try {
+        try (FileInputStream fis = new FileInputStream(file);
+        	 FileChannel fileChannel = fis.getChannel()){
             long head = computeHashForChunk(fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, chunkSizeForFile));
             long tail = computeHashForChunk(fileChannel.map(FileChannel.MapMode.READ_ONLY, Math.max(size - HASH_CHUNK_SIZE, 0), chunkSizeForFile));
 
             return String.format("%016x", size + head + tail);
-        } finally {
-            fileChannel.close();
+        } catch(Exception e) {
+        	throw new RuntimeException(e);
         }
     }
 
 
-    public static String computeHash(InputStream stream, long length) throws IOException {
+    public static String computeHash(InputStream stream, long length) {
 
         int chunkSizeForFile = (int) Math.min(HASH_CHUNK_SIZE, length);
 
         // buffer that will contain the head and the tail chunk, chunks will overlap if length is smaller than two chunks
         byte[] chunkBytes = new byte[(int) Math.min(2 * HASH_CHUNK_SIZE, length)];
 
-        DataInputStream in = new DataInputStream(stream);
-
-        // first chunk
-        in.readFully(chunkBytes, 0, chunkSizeForFile);
-
-        long position = chunkSizeForFile;
-        long tailChunkPosition = length - chunkSizeForFile;
-
-        // seek to position of the tail chunk, or not at all if length is smaller than two chunks
-        while (position < tailChunkPosition && (position += in.skip(tailChunkPosition - position)) >= 0) ;
-
-        // second chunk, or the rest of the data if length is smaller than two chunks
-        in.readFully(chunkBytes, chunkSizeForFile, chunkBytes.length - chunkSizeForFile);
+        try(DataInputStream in = new DataInputStream(stream)) {
+	        // first chunk
+	        in.readFully(chunkBytes, 0, chunkSizeForFile);
+	
+	        long position = chunkSizeForFile;
+	        long tailChunkPosition = length - chunkSizeForFile;
+	
+	        // seek to position of the tail chunk, or not at all if length is smaller than two chunks
+	        while (position < tailChunkPosition && (position += in.skip(tailChunkPosition - position)) >= 0) ;
+	
+	        // second chunk, or the rest of the data if length is smaller than two chunks
+	        in.readFully(chunkBytes, chunkSizeForFile, chunkBytes.length - chunkSizeForFile);
+        } catch(Exception e) {
+        	throw new RuntimeException(e);
+        }
 
         long head = computeHashForChunk(ByteBuffer.wrap(chunkBytes, 0, chunkSizeForFile));
         long tail = computeHashForChunk(ByteBuffer.wrap(chunkBytes, chunkBytes.length - chunkSizeForFile, chunkSizeForFile));

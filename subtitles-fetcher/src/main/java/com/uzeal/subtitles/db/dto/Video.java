@@ -5,7 +5,7 @@ import com.uzeal.db.dao.Key;
 
 public class Video implements DTO {
 	@Key(order=1)
-	private long showId;
+	private String showName;
 	@Key(order=2)
 	private String name;
 	private String path;
@@ -16,12 +16,12 @@ public class Video implements DTO {
 		
 	}
 
-	public long getShowId() {
-		return showId;
+	public String getshowName() {
+		return showName;
 	}
 
-	public void setShowId(long showId) {
-		this.showId = showId;
+	public void setshowName(String showName) {
+		this.showName = showName;
 	}
 
 	public String getName() {
@@ -59,7 +59,7 @@ public class Video implements DTO {
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
-		builder.append("Video [showId=").append(showId).append(", name=").append(name).append(", path=").append(path)
+		builder.append("Video [showName=").append(showName).append(", name=").append(name).append(", path=").append(path)
 				.append(", hash=").append(hash).append(", subtitles=").append(subtitles).append("]");
 		return builder.toString();
 	}
