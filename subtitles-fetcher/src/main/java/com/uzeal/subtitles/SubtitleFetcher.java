@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 
@@ -16,23 +18,13 @@ import com.uzeal.subtitles.util.Initializer;
 import com.uzeal.subtitles.util.VideoProcessor;
 
 public class SubtitleFetcher {
-	private static final ArrayList<String> subtitleExtensions = new ArrayList<String>();
-	private static final ArrayList<String> fileDirs = new ArrayList<String>();
-	private static final ArrayList<String> videoExtenstions = new ArrayList<String>();
-	//private static final StringMOVIE_EXTENSIONS="mp4,mkv,avi,mov";
-	static {
-		subtitleExtensions.add(".srt");
-		subtitleExtensions.add(".sub");
-		videoExtenstions.add("mp4");
-		videoExtenstions.add("mkv");
-		videoExtenstions.add("avi");
-		videoExtenstions.add("mov");
-		videoExtenstions.add("m4v");
-	}
+	private static final List<String> subtitleExtensions = Arrays.asList(".srt",".sub");
+	private static final List<String> videoExtenstions = Arrays.asList(".mkv",".mp4",".avi",".mov",".m4v");
+	private static final List<String> skipWords = Arrays.asList("anime");
 	
 	public static void main(String[] args) {
 		try {
-			Initializer.initDB();
+			//Initializer.initDB();
 			File currentDir = new File(".");
 			System.out.println("Reading file from: "+currentDir.getAbsolutePath()+"main-dirs.properties");
 			Properties sources = null;
@@ -44,7 +36,7 @@ public class SubtitleFetcher {
 			}
 			
 			if(sources != null && !sources.isEmpty()) {
-				sources.forEach((souurceName,path) -> processSource((String)souurceName,(String)path));
+				sources.forEach((sourceName,path) -> processSource((String)sourceName,(String)path));
 			} else {
 				System.out.println("Empty or null main-dirs.properties");
 			}
@@ -57,42 +49,43 @@ public class SubtitleFetcher {
 	private static void processSource(String sourceName, String path) {
 		System.out.println("Processing Source: "+sourceName+" with path: "+path);
 		try {
-			Stream<Path> fileStream = Files.walk(new File(path).toPath());
-			fileStream
+			Files.walk(new File(path).toPath())
 				.map(filePath -> filePath.toFile())
+				.filter(file -> !isSkipped(file))
 				.filter(file -> !file.isDirectory() && isVideo(file))
-				.forEach(file -> VideoProcessor.process(file));
+				.filter(video -> !hasSubtitles(video))
+				.forEach(video -> System.out.println(video.getAbsolutePath() + " : "+OpenSubtitleHasher.computeHash(video)));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		
 	}
 	
+	private static boolean isSkipped(File file) {
+		String path = file.getAbsolutePath().toLowerCase();
+		return skipWords.stream().anyMatch(word -> path.contains(word));
+	}
+	
 	private static boolean isVideo(File file) {
-		boolean isVideo = false;
 		String filename = file.getName().toLowerCase();
-		String  basename = FilenameUtils.getBaseName(filename);
-		for(String ext : videoExtenstions) {
-			if(filename.toLowerCase().endsWith(ext)) {
-				isVideo = true;
-				break;
-			}
-		}
-		return isVideo;
+		return videoExtenstions.stream().anyMatch(ext -> filename.endsWith(ext));
+	}
+	
+	private static boolean isSubtitle(Path path) {
+		String filename = path.toFile().getName().toLowerCase();
+		return subtitleExtensions.stream().anyMatch(ext -> filename.endsWith(ext));
 	}
 	
 	private static boolean hasSubtitles(File video) {
-		boolean subExits = false;
-		String filename = video.getName();
-		String  basename = FilenameUtils.getBaseName(filename);
-		for(String ext : subtitleExtensions) {
-			String subname = basename+ext;
-			File sub = new File(video.getParentFile(),subname);
-			if(sub.exists()) {
-				subExits = true;
-				break;
-			}
+		boolean hasSubtitles = false;
+		try {
+			hasSubtitles = Files.find(video.getParentFile().toPath(), 1, 
+						(path,attrs) -> isSubtitle(path))
+				.findFirst()
+				.isPresent();
+		} catch(Exception e) {
+			throw new RuntimeException(e);
 		}
-		return subExits;
+		return hasSubtitles;
 	}
 }

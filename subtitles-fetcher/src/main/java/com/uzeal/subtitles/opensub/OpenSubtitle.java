@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
@@ -23,26 +22,17 @@ import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 
 public class OpenSubtitle {
     private static String OPEN_SUBTITLES_SERVER="http://api.opensubtitles.org/xml-rpc";
-    private static String MOVIE_EXTENSIONS="mp4,mkv,avi,mov";
 
-    XmlRpcClientConfigImpl xmlRpcClientConfig;
-    XmlRpcClient xmlRpcClient;
-    String strToken="";
-    String fileHash="";
-    File movie;
-    FilenameFilter fileNameFilter;
-    ArrayList<String> movieFileExtensions;
+    private XmlRpcClientConfigImpl xmlRpcClientConfig;
+    private XmlRpcClient xmlRpcClient;
+    private String strToken="";
+    private String fileHash="";
+    private File movie;
 
 
     public OpenSubtitle(){
         xmlRpcClientConfig=new XmlRpcClientConfigImpl();
         xmlRpcClient=new XmlRpcClient();
-        movieFileExtensions=new ArrayList<String>();
-        String movieExtensionArray[]=MOVIE_EXTENSIONS.split(",");
-        for(String extn : movieExtensionArray ){
-            movieFileExtensions.add(extn);
-        }
-
 
         try {
             xmlRpcClientConfig.setServerURL(new URL(OPEN_SUBTITLES_SERVER));
@@ -230,7 +220,7 @@ public class OpenSubtitle {
     public List <SubtitleInfo> Search(String filePath) throws XmlRpcException {
         computeHash(filePath);
         List<SubtitleInfo> infos=new ArrayList<SubtitleInfo>();
-        Map<String, String> parameterMap = new HashMap();
+        Map<String, String> parameterMap = new HashMap<String,String>();
 //        System.out.println(fileHash);
 //        System.out.println(movie.length());
         HashMap<?, ?> retVal;

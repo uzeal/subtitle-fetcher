@@ -10,7 +10,7 @@ public class OpenSubMain {
 			openSubtitle.ServerInfo();
 			openSubtitle.getSubLanguages();
 			//openSubtitle.getTvSeriesSubs(TvseriesName, season, episode, limit, language)
-			openSubtitle.Search("C:\\Users\\Matt\\Desktop\\test\\The Big Bang Theory\\Season 11\\The.Big.Bang.Theory.S11E15.The.Novelization.Correlation.HDTV-720p.mkv");
+			openSubtitle.Search("\\\\mediapc\\Cylon\\TV\\True Detective\\Season 02\\True.Detective.S02E01.The.Western.Book.of.the.Dead.mkv");
 			openSubtitle.logOut();
 		} catch (XmlRpcException e) {
 			e.printStackTrace();
