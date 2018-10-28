@@ -2,20 +2,13 @@ package com.uzeal.subtitles;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.stream.Stream;
 
-import org.apache.commons.io.FilenameUtils;
-
-import com.uzeal.subtitles.opensub.OpenSubtitleHasher;
-import com.uzeal.subtitles.util.Initializer;
-import com.uzeal.subtitles.util.VideoProcessor;
+import com.uzeal.subtitles.opensub.OpenSubtitleAPI;
 
 public class SubtitleFetcher {
 	private static final List<String> subtitleExtensions = Arrays.asList(".srt",".sub");
@@ -35,10 +28,16 @@ public class SubtitleFetcher {
 				e.printStackTrace();
 			}
 			
-			if(sources != null && !sources.isEmpty()) {
-				sources.forEach((sourceName,path) -> processSource((String)sourceName,(String)path));
+			if(sources != null && !sources.isEmpty() && args.length > 1) {
+				OpenSubtitleAPI api = new OpenSubtitleAPI();
+				try {
+					api.login(args[0], args[1]);
+					sources.forEach((sourceName,path) -> processSource(api, (String)sourceName,(String)path));
+				} finally {
+					api.logOut();
+				}
 			} else {
-				System.out.println("Empty or null main-dirs.properties");
+				System.out.println("Empty args or empty main-dirs.properties");
 			}
 		} catch (Exception e1) {
 			e1.printStackTrace();
@@ -46,7 +45,7 @@ public class SubtitleFetcher {
 					
 	}
 	
-	private static void processSource(String sourceName, String path) {
+	private static void processSource(OpenSubtitleAPI api, String sourceName, String path) {
 		System.out.println("Processing Source: "+sourceName+" with path: "+path);
 		try {
 			Files.walk(new File(path).toPath())
@@ -54,11 +53,10 @@ public class SubtitleFetcher {
 				.filter(file -> !isSkipped(file))
 				.filter(file -> !file.isDirectory() && isVideo(file))
 				.filter(video -> !hasSubtitles(video))
-				.forEach(video -> System.out.println(video.getAbsolutePath() + " : "+OpenSubtitleHasher.computeHash(video)));
-		} catch (IOException e) {
+				.forEach(video -> api.downloadSub(video));
+		} catch (Exception e) {
 			e.printStackTrace();
-		}
-		
+		}		
 	}
 	
 	private static boolean isSkipped(File file) {

@@ -37,12 +37,11 @@ public class OpenSubtitleAPI {
             xmlRpcClientConfig.setServerURL(new URL(OPEN_SUBTITLES_SERVER));
             xmlRpcClient.setConfig(xmlRpcClientConfig);
         } catch (MalformedURLException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
 
-    }
-
+    }  
+    
     @SuppressWarnings("unchecked")
 	public String login(String username, String password) throws XmlRpcException{
         List<String> params=new ArrayList<String>();
@@ -69,19 +68,23 @@ public class OpenSubtitleAPI {
         }
     }
     
-    public void downloadSub(File video) throws Exception {
-    	System.out.println("Downloading sub for: "+video.getName());
-    	List<SubtitleInfo> subtitles = search(video);
-    	if(subtitles != null && !subtitles.isEmpty()) {
-			SubtitleInfo sub = chooseBestSubtitle(subtitles);
-			if(sub != null) {
-				downloadSubtitle(video, sub);
-			} else {
-				System.out.println("Error choosing best sub");
-			}
-    	} else {
-    		System.out.println("No subs found");
-    	}
+    public void downloadSub(File video) {
+    	try {
+	    	System.out.println("Downloading sub for: "+video.getName());
+	    	List<SubtitleInfo> subtitles = search(video);
+	    	if(subtitles != null && !subtitles.isEmpty()) {
+				SubtitleInfo sub = chooseBestSubtitle(subtitles);
+				if(sub != null) {
+					downloadSubtitle(video, sub);
+				} else {
+					System.out.println("Error choosing best sub");
+				}
+	    	} else {
+	    		System.out.println("No subs found");
+	    	} 
+    	} catch(Exception e) {
+    		throw new RuntimeException(e);
+    	}    	
     }
 
     public List<SubtitleInfo> search(File video) throws XmlRpcException {
