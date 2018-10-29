@@ -68,23 +68,21 @@ public class OpenSubtitleAPI {
         }
     }
     
-    public void downloadSub(File video) {
-    	try {
-	    	System.out.println("Downloading sub for: "+video.getName());
-	    	List<SubtitleInfo> subtitles = search(video);
-	    	if(subtitles != null && !subtitles.isEmpty()) {
-				SubtitleInfo sub = chooseBestSubtitle(subtitles);
-				if(sub != null) {
-					downloadSubtitle(video, sub);
-				} else {
-					System.out.println("Error choosing best sub");
-				}
-	    	} else {
-	    		System.out.println("No subs found");
-	    	} 
-    	} catch(Exception e) {
-    		throw new RuntimeException(e);
-    	}    	
+    public boolean downloadSub(File video) throws Exception {
+    	boolean downloaded = false;
+    	System.out.println("Downloading sub for: "+video.getName());
+    	List<SubtitleInfo> subtitles = search(video);
+    	if(subtitles != null && !subtitles.isEmpty()) {
+			SubtitleInfo sub = chooseBestSubtitle(subtitles);
+			if(sub != null) {
+				downloaded = downloadSubtitle(video, sub);
+			} else {
+				System.out.println("Error choosing best sub");
+			}
+    	} else {
+    		System.out.println("No subs found");
+    	}
+    	return downloaded;
     }
 
     public List<SubtitleInfo> search(File video) throws XmlRpcException {
@@ -137,7 +135,8 @@ public class OpenSubtitleAPI {
     	return best;
     }
 
-    public void downloadSubtitle(File video, SubtitleInfo subtitle) throws IOException {
+    public boolean downloadSubtitle(File video, SubtitleInfo subtitle) throws IOException {
+    	boolean downloaded = false;
     	URL url = new URL(subtitle.getSubDownloadLink());
     	System.out.println("Downloading: "+subtitle.getSubDownloadLink());
         URLConnection conn = url.openConnection();
@@ -170,6 +169,7 @@ public class OpenSubtitleAPI {
 			        }
 			        fos.flush();
 		        }
+		        downloaded = true;
 		        System.out.println("Unzipped: "+subFile.getAbsolutePath());
 	        } finally {
 	        	subtitleFile.delete();
@@ -177,6 +177,7 @@ public class OpenSubtitleAPI {
     	} else {
     		System.out.println("Failed to download sub");
     	}
+    	return downloaded;
     }
     
     private String getSubName(File video, String subtitleName) {
