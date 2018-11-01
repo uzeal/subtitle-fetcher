@@ -20,6 +20,8 @@ import org.apache.xmlrpc.XmlRpcException;
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 
+import com.uzeal.subtitles.ShowInfo;
+
 
 public class OpenSubtitleAPI {
     private static String OPEN_SUBTITLES_SERVER="http://api.opensubtitles.org/xml-rpc";
@@ -68,7 +70,7 @@ public class OpenSubtitleAPI {
         }
     }
     
-    public boolean downloadSub(File video) throws Exception {
+    public boolean downloadSub(File video, ShowInfo show) throws Exception {
     	boolean downloaded = false;
     	System.out.println("Downloading sub for: "+video.getName());
     	List<SubtitleInfo> subtitles = search(video);
@@ -183,6 +185,34 @@ public class OpenSubtitleAPI {
     private String getSubName(File video, String subtitleName) {
     	String videoName = video.getAbsolutePath();
         return FilenameUtils.getFullPath(videoName)+FilenameUtils.getBaseName(videoName)+"."+FilenameUtils.getExtension(subtitleName);
+    }
+    
+    @SuppressWarnings("unchecked")
+	public List<SubtitleInfo> getTvSeriesSubs(String TvseriesName,String season,String episode,String limit,String language) throws XmlRpcException {
+
+        List <SubtitleInfo> infos=new ArrayList<SubtitleInfo>();
+        HashMap<String,?> retVal;
+        List<String> params=new ArrayList<String>();
+        params.add(strToken);
+        HashMap <String,Object> query = new HashMap<String,Object>();
+        query.put("query",TvseriesName);
+        query.put("season", season);
+        query.put("episode",episode);
+        query.put("sublanguageid", language);
+        //HashMap <String,Object> query2=new HashMap<String,Object>();
+        //query2.put("limit", limit);
+        Object[] paramsArray = new Object[]{strToken, new Object[]{query}};
+        retVal=(HashMap<String,String>)xmlRpcClient.execute("SearchSubtitles", paramsArray);
+        System.out.println("Status code is " + retVal.get("status"));
+        if(retVal.get("data") instanceof Object[]){
+            Object[] data=(Object [])retVal.get("data");
+            for (int i=0;i<data.length;i++) {
+                SubtitleInfo info=new SubtitleInfo((HashMap<String, String>) data[i]);
+                infos.add(info);
+            }
+        }
+        System.out.println("Total subs length is " + ((Object[]) retVal.get("data")).length);
+        return infos;
     }
     
     /*public List<SubtitleInfo>SearchMoviesOnImdb(String moviename) throws XmlRpcException {

@@ -275,4 +275,25 @@ public class SubtitleInfo {
     public void setSubDownloadLink(String subDownloadLink) {
         SubDownloadLink = subDownloadLink;
     }
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("SubtitleInfo [IDSubMovieFile=").append(IDSubMovieFile).append(", MovieHash=").append(MovieHash)
+				.append(", MovieByteSize=").append(MovieByteSize).append(", MovieTimeMS=").append(MovieTimeMS)
+				.append(", MovieFrames=").append(MovieFrames).append(", IDSubtitleFile=").append(IDSubtitleFile)
+				.append(", SubFileName=").append(SubFileName).append(", SubActualCD=").append(SubActualCD)
+				.append(", SubSize=").append(SubSize).append(", SubHash=").append(SubHash).append(", IDSubtitle=")
+				.append(IDSubtitle).append(", UserID=").append(UserID).append(", SubLanguageID=").append(SubLanguageID)
+				.append(", SubFormat=").append(SubFormat).append(", SubSumCD=").append(SubSumCD).append(", SubAddDate=")
+				.append(SubAddDate).append(", SubDownloadsCnt=").append(SubDownloadsCnt).append(", SubBad=")
+				.append(SubBad).append(", SubRating=").append(SubRating).append(", IDMovie=").append(IDMovie)
+				.append(", IDMovieImdb=").append(IDMovieImdb).append(", MovieName=").append(MovieName)
+				.append(", MovieNameEng=").append(MovieNameEng).append(", MovieYear=").append(MovieYear)
+				.append(", MovieImdbRating=").append(MovieImdbRating).append(", UserNickName=").append(UserNickName)
+				.append(", ISO639=").append(ISO639).append(", LanguageName=").append(LanguageName)
+				.append(", SubDownloadLink=").append(SubDownloadLink).append("]");
+		return builder.toString();
+	}
+    
+    
 }

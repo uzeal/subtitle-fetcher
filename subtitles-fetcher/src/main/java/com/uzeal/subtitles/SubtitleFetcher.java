@@ -14,6 +14,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.xmlrpc.client.XmlRpcHttpTransportException;
 
 import com.uzeal.subtitles.opensub.OpenSubtitleAPI;
@@ -22,13 +24,13 @@ public class SubtitleFetcher {
 	private static final Set<String> subtitleExtensions = Stream.of(".srt", ".sub").collect(Collectors.toSet());
 	private static final Set<String> videoExtenstions = Stream.of(".mkv",".mp4",".avi",".mov",".m4v").collect(Collectors.toSet());
 	private static final Set<String> skipWords = Stream.of("anime").collect(Collectors.toSet());
-	private static final String failedFile = "failed.txt";
+	private static final String backlogFile = "backlog.txt";
 	private static long timeBetween = 2000;
 	private static long timeToAdd = 500;
 	private static long maxWait = 15000;
 	private static int maxDownloaded = 200;
 	private static int downloaded = 0;
-	private static Set<String> failed;
+	private static Set<String> backlog;
 	
 	public static void main(String[] args) {
 		try {
@@ -41,8 +43,8 @@ public class SubtitleFetcher {
 				sources.load(fis);
 			}
 			
-			failed = new HashSet<String>();
-			readFailed();
+			backlog = new HashSet<String>();
+			readBacklog();
 			
 			if(sources != null && !sources.isEmpty() && args.length > 1) {
 				OpenSubtitleAPI api = new OpenSubtitleAPI();
@@ -62,10 +64,11 @@ public class SubtitleFetcher {
 		}
 		
 		try {
-			writeFailed();
+			writeBacklog();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		System.out.println("Finished downloaded: "+downloaded+" subs");
 	}
 	
 	private static void processSource(OpenSubtitleAPI api, String sourceName, String path) {
@@ -73,7 +76,7 @@ public class SubtitleFetcher {
 		try {
 			Files.walk(new File(path).toPath())
 				.map(filePath -> filePath.toFile())
-				.filter(file -> !failed.contains(file.getAbsolutePath()))
+				.filter(file -> !backlog.contains(file.getAbsolutePath()))
 				.filter(file -> !isSkipped(file))
 				.filter(file -> !file.isDirectory() && isVideo(file))
 				.filter(video -> !hasSubtitles(video))
@@ -84,11 +87,12 @@ public class SubtitleFetcher {
 	}
 	
 	private static void waitAndDownload(OpenSubtitleAPI api, File video) {
+		ShowInfo show = getShowInfo(video);
 		try {
-			Thread.sleep(timeBetween);
-			if(!api.downloadSub(video)) {
+			Thread.sleep(timeBetween);		
+			if(!api.downloadSub(video, show)) {
 				System.out.println("Didnt download skipping next time");
-				failed.add(video.getAbsolutePath());
+				backlog.add(video.getAbsolutePath());
 			} else {
 				downloaded++;
 				if(downloaded >= maxDownloaded) {
@@ -106,7 +110,7 @@ public class SubtitleFetcher {
 					try {
 						System.out.println("attempt #"+attempt+" sleeping "+timeToSleep+"ms");						
 						Thread.sleep(timeToSleep);
-						api.downloadSub(video);
+						api.downloadSub(video, show);
 						fail = false;
 					} catch (Exception e1) {
 						fail = true;
@@ -157,24 +161,78 @@ public class SubtitleFetcher {
 		return hasSubtitles;
 	}
 	
-	private static void writeFailed() throws Exception {
-		try(PrintWriter pw = new PrintWriter(new FileOutputStream(failedFile))) {
-		    for (String path : failed) {
+	private static void writeBacklog() throws Exception {
+		System.out.println("Writing backlog file");
+		try(PrintWriter pw = new PrintWriter(new FileOutputStream(backlogFile))) {
+		    for (String path : backlog) {
 		        pw.println(path);
 		    }
 		}
 	}
 	
-	private static void readFailed() {
-		try (BufferedReader br = new BufferedReader(new FileReader(new File(failedFile)))) {
+	private static void readBacklog() {
+		try (BufferedReader br = new BufferedReader(new FileReader(new File(backlogFile)))) {
 		    String line = null;
 		    while ((line = br.readLine()) != null) {
-		       failed.add(line);
-		       System.out.println("Adding failed: "+line);
+		    	line = line.trim();
+		    	if(!line.isEmpty()) {
+			    	backlog.add(line);
+		    	}
 		    }
+		    System.out.println("Read "+backlog.size()+" backlog entries");
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
 		
+	}
+	
+	private static ShowInfo getShowInfo(File video) {
+		ShowInfo show = new ShowInfo();
+		File parent = video.getParentFile();
+		if(parent.getName().startsWith("Season ")) {
+			show.setMovie(false);
+			show.setSeason(Integer.valueOf(parent.getName().substring(7)));
+			show.setShowName(sanitizeName(parent.getParentFile().getName()));
+			getEpisode(video, show);
+		} else {
+			getMovieInfo(video, show);
+		}
+		return show;
+	}
+	
+	private static void getMovieInfo(File video, ShowInfo show) {
+		show.setMovie(true);
+		String movieName = video.getParentFile().getName();
+		int index = movieName.indexOf('(');
+		if(index > 0) {
+			show.setYear(movieName.substring(index+1, movieName.indexOf(')')));
+			show.setShowName(sanitizeName(movieName.substring(0,index)));
+		} else {
+			show.setShowName(sanitizeName(movieName));
+		}
+	}
+	
+	private static void getEpisode(File video, ShowInfo show) {	
+		int index = video.getName().indexOf(buildSXXE(show.getSeason()));
+		if(index > 0) {
+			String ep = video.getName().substring(index+4, index+6);
+			show.setEpisode(Integer.valueOf(ep));
+			show.setEpisodeName(sanitizeName(FilenameUtils.getBaseName(video.getName().substring(index+6))));
+		}
+
+	}
+	
+	private static String buildSXXE(Integer season) {
+		StringBuilder builder = new StringBuilder("S");
+		if(season.intValue() < 10) {
+			builder.append("0");
+		}
+		builder.append(season);
+		builder.append("E");
+		return builder.toString();
+	}
+	
+	private static String sanitizeName(String name) {
+		return StringUtils.replace(name,"."," ").trim();
 	}
 }
