@@ -21,7 +21,7 @@ import org.apache.xmlrpc.client.XmlRpcHttpTransportException;
 import com.uzeal.subtitles.opensub.OpenSubtitleAPI;
 
 public class SubtitleFetcher {
-	private static final Set<String> subtitleExtensions = Stream.of(".srt", ".sub").collect(Collectors.toSet());
+	private static final Set<String> subtitleExtensions = Stream.of(".srt",".sub",".ass",".ssa").collect(Collectors.toSet());
 	private static final Set<String> videoExtenstions = Stream.of(".mkv",".mp4",".avi",".mov",".m4v").collect(Collectors.toSet());
 	private static final Set<String> skipWords = Stream.of("anime").collect(Collectors.toSet());
 	private static final String backlogFile = "backlog.txt";
@@ -31,6 +31,7 @@ public class SubtitleFetcher {
 	private static int maxDownloaded = 200;
 	private static int downloaded = 0;
 	private static Set<String> backlog;
+	private static Set<String> backlogRemove;
 	
 	public static void main(String[] args) {
 		try {
@@ -44,13 +45,24 @@ public class SubtitleFetcher {
 			}
 			
 			backlog = new HashSet<String>();
+			backlogRemove = new HashSet<String>();
 			readBacklog();
 			
-			if(sources != null && !sources.isEmpty() && args.length > 1) {
+			if(args.length > 2 && Boolean.TRUE.equals(Boolean.parseBoolean(args[2]))) {
 				OpenSubtitleAPI api = new OpenSubtitleAPI();
 				try {
 					api.login(args[0], args[1]);
-					sources.forEach((sourceName,path) -> processSource(api, (String)sourceName, (String)path));
+					processBacklog(api);
+				} catch(RuntimeException e) {
+					throw new Exception(e);
+				} finally {
+					api.logOut();
+				}
+			} else if(sources != null && !sources.isEmpty() && args.length > 1) {
+				OpenSubtitleAPI api = new OpenSubtitleAPI();
+				try {
+					api.login(args[0], args[1]);
+					sources.forEach((sourceName,path) -> processSource(api, (String)sourceName, (String)path, false));
 				} catch(RuntimeException e) {
 					throw new Exception(e);
 				} finally {
@@ -71,7 +83,7 @@ public class SubtitleFetcher {
 		System.out.println("Finished downloaded: "+downloaded+" subs");
 	}
 	
-	private static void processSource(OpenSubtitleAPI api, String sourceName, String path) {
+	private static void processSource(OpenSubtitleAPI api, String sourceName, String path, boolean allowNonExactMatch) {
 		System.out.println("Processing Source: "+sourceName+" with path: "+path);
 		try {
 			Files.walk(new File(path).toPath())
@@ -80,20 +92,39 @@ public class SubtitleFetcher {
 				.filter(file -> !isSkipped(file))
 				.filter(file -> !file.isDirectory() && isVideo(file))
 				.filter(video -> !hasSubtitles(video))
-				.forEach(video -> waitAndDownload(api, video));
+				.forEach(video -> waitAndDownload(api, video, allowNonExactMatch));
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}		
 	}
 	
-	private static void waitAndDownload(OpenSubtitleAPI api, File video) {
+	private static void processBacklog(OpenSubtitleAPI api) {
+		System.out.println("Processing backlog of: "+backlog.size());
+		backlog.stream().map(path -> new File(path))
+			.filter(file -> !file.isDirectory() && isVideo(file))
+			.filter(video -> !hasSubtitles(video))
+			.forEach(video -> processBacklog(api, video));
+	}
+	
+	private static void processBacklog(OpenSubtitleAPI api, File video) {
+		boolean downloaded = waitAndDownload(api, video, true);
+		if(downloaded) {
+			backlogRemove.add(video.getAbsolutePath());
+		}
+	}
+	
+	private static boolean waitAndDownload(OpenSubtitleAPI api, File video, boolean allowNonExactMatch) {
+		boolean downloadedFile = false;
 		ShowInfo show = getShowInfo(video);
 		try {
 			Thread.sleep(timeBetween);		
-			if(!api.downloadSub(video, show)) {
+			if(!api.downloadSub(video, show, allowNonExactMatch)) {
 				System.out.println("Didnt download skipping next time");
-				backlog.add(video.getAbsolutePath());
+				if(!backlog.contains(video.getAbsolutePath())) {
+					backlog.add(video.getAbsolutePath());
+				}
 			} else {
+				downloadedFile = true;
 				downloaded++;
 				if(downloaded >= maxDownloaded) {
 					throw new RuntimeException("Max Downloaded");
@@ -110,8 +141,15 @@ public class SubtitleFetcher {
 					try {
 						System.out.println("attempt #"+attempt+" sleeping "+timeToSleep+"ms");						
 						Thread.sleep(timeToSleep);
-						api.downloadSub(video, show);
-						fail = false;
+						if(api.downloadSub(video, show, allowNonExactMatch)) {
+							fail = false;
+							downloadedFile = true;
+							downloaded++;
+							if(downloaded >= maxDownloaded) {
+								throw new RuntimeException("Max Downloaded");
+							}
+						}
+						
 					} catch (Exception e1) {
 						fail = true;
 						timeToSleep *= 2;
@@ -131,6 +169,7 @@ public class SubtitleFetcher {
 				throw new RuntimeException(e);
 			}		
 		}
+		return downloadedFile;
 	}
 	
 	private static boolean isSkipped(File file) {
@@ -162,7 +201,9 @@ public class SubtitleFetcher {
 	}
 	
 	private static void writeBacklog() throws Exception {
-		System.out.println("Writing backlog file");
+		System.out.println("Removing "+backlogRemove.size()+" from the backlog.");
+		backlogRemove.stream().forEach(path -> backlog.remove(path));
+		System.out.println("Writing backlog file: "+backlog.size());
 		try(PrintWriter pw = new PrintWriter(new FileOutputStream(backlogFile))) {
 		    for (String path : backlog) {
 		        pw.println(path);
